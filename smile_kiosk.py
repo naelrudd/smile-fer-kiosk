@@ -29,8 +29,17 @@ EXPRESSIONS = {
 
 SMOOTH_FRAMES = 5
 FONT = cv.FONT_HERSHEY_DUPLEX
-FER_INTERVAL = 5  # Run FER every N frames
-FACE_INPUT_SIZE = (320, 240)  # Resize for face detection
+FER_INTERVAL = 5
+FACE_INPUT_SIZE = (320, 240)
+BRIGHTNESS_FACTOR = 0.7  # ponytail: fixed value, add slider if user wants manual control
+
+
+def apply_brightness_filter(frame, brightness_factor=BRIGHTNESS_FACTOR, contrast=1.0):
+    """Reduce brightness and optionally adjust contrast."""
+    frame = frame.astype(np.float32) * contrast
+    frame = frame - 127.0 * (contrast - 1.0)
+    frame = frame * brightness_factor
+    return np.clip(frame, 0, 255).astype(np.uint8)
 
 
 def load_models():
@@ -91,16 +100,13 @@ def visualize(frame, faces, history):
         info = EXPRESSIONS.get(smooth_idx, EXPRESSIONS[4])
         color = info['color']
 
-        # Thin rounded-ish rectangle
         pad = 6
         cv.rectangle(output, (x - pad, y - pad), (x + bw + pad, y + bh + pad), color, 3, cv.LINE_AA)
 
-        # Small landmark dots
         for lx, ly in landmarks:
             cv.circle(output, (lx, ly), 4, (255, 255, 255), -1, cv.LINE_AA)
             cv.circle(output, (lx, ly), 2, color, -1, cv.LINE_AA)
 
-        # Label pill below the face
         label_text = info['label']
         (tw, th), _ = cv.getTextSize(label_text, FONT, 0.75, 2)
 
@@ -113,7 +119,6 @@ def visualize(frame, faces, history):
 
         draw_pill(output, px1, py1, px2, py2, color)
 
-        # Draw label text centered
         text_x = px1 + (pill_w - tw) // 2
         text_y = py1 + pill_h - 10
         cv.putText(output, label_text, (text_x, text_y), FONT, 0.75, (255, 255, 255), 2, cv.LINE_AA)
@@ -129,7 +134,6 @@ def main():
         print("Cannot open camera")
         return
 
-    # Lower default resolution for performance
     cap.set(cv.CAP_PROP_FRAME_WIDTH, 480)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 360)
 
@@ -148,8 +152,8 @@ def main():
             break
 
         frame = cv.flip(frame, 1)
+        frame = apply_brightness_filter(frame)
 
-        # Resize for faster face detection, then scale coords back
         orig_h, orig_w = frame.shape[:2]
         small_frame = cv.resize(frame, FACE_INPUT_SIZE)
         scale_x = orig_w / FACE_INPUT_SIZE[0]
@@ -157,7 +161,6 @@ def main():
 
         small_faces = detect_faces(detect_model, small_frame)
 
-        # Scale bounding boxes and landmarks back to original frame size
         scaled_faces = []
         for (x, y, bw, bh), landmarks, face_points in small_faces:
             x, y, bw, bh = int(x * scale_x), int(y * scale_y), int(bw * scale_x), int(bh * scale_y)
