@@ -1,0 +1,53 @@
+name: Build Executables
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install opencv-python numpy pyinstaller
+      - name: Build Linux executable
+        run: |
+          pyinstaller --onefile --name smile_kiosk_linux --add-data "models:models" --hidden-import cv2 smile_kiosk.py
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smile_kiosk_linux
+          path: dist/smile_kiosk_linux
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install opencv-python numpy pyinstaller
+      - name: Build Windows executable
+        run: |
+          pyinstaller --onefile --name smile_kiosk_windows --add-data "models;models" --hidden-import cv2 smile_kiosk.py
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smile_kiosk_windows
+          path: dist/smile_kiosk_windows.exe

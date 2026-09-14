@@ -10,6 +10,7 @@ A fullscreen facial expression recognition kiosk for **Ubuntu Desktop** and **Wi
 - Fullscreen kiosk UI with colored bounding boxes per expression
 - Auto-start on login (Ubuntu and Windows)
 - Single-command installer
+- Pre-built executables available for Linux and Windows
 
 ## Expressions Supported
 
@@ -23,9 +24,36 @@ A fullscreen facial expression recognition kiosk for **Ubuntu Desktop** and **Wi
 | Sad        | 😢   | Blue   |
 | Surprised  | 😲   | Cyan   |
 
+## Download Pre-built Executables
+
+Download the latest executables from GitHub Actions artifacts:
+- `smile_kiosk_linux` — for Ubuntu/Linux
+- `smile_kiosk_windows.exe` — for Windows
+
+Or download from the [Releases](../../releases) page.
+
 ## Quick Start
 
-### Ubuntu
+### Option 1: Pre-built Executable
+
+#### Linux
+
+```bash
+chmod +x smile_kiosk_linux
+./smile_kiosk_linux
+```
+
+#### Windows
+
+Double-click `smile_kiosk_windows.exe` or run from Command Prompt:
+
+```batch
+smile_kiosk_windows.exe
+```
+
+### Option 2: Install from Source
+
+#### Ubuntu
 
 1. Extract `smile_kiosk.zip`.
 2. Open terminal inside the `smile_kiosk` folder.
@@ -38,7 +66,7 @@ chmod +x install.sh
 
 4. Reboot.
 
-### Windows
+#### Windows
 
 1. Extract `smile_kiosk.zip`.
 2. Open `smile_kiosk` folder.
@@ -61,11 +89,30 @@ chmod +x install.sh
 
 Exit by pressing `ESC` or `Q`.
 
+## Build Executable Yourself
+
+### Requirements
+
+- Python 3.12+
+- `pip install opencv-python numpy pyinstaller`
+
+### Linux
+
+```bash
+pyinstaller --onefile --name smile_kiosk_linux --add-data "models:models" --hidden-import cv2 smile_kiosk.py
+```
+
+### Windows
+
+```batch
+pyinstaller --onefile --name smile_kiosk_windows --add-data "models;models" --hidden-import cv2 smile_kiosk.py
+```
+
 ## System Requirements
 
 - Ubuntu Desktop or Windows 10/11
 - Webcam
-- Python 3.12+
+- Python 3.12+ (only for source install)
 - Internet connection only during installation
 
 ## File Structure
@@ -82,6 +129,8 @@ smile_kiosk/
 ├── install.bat          # Windows installer + autostart
 ├── run.sh               # Ubuntu manual launcher
 ├── run.bat              # Windows manual launcher
+├── .github/workflows/   # CI/CD for building executables
+├── dist/                # Pre-built executables
 └── README.md
 ```
 
