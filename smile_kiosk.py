@@ -153,10 +153,11 @@ def visualize(frame, faces, history):
         text_y = py1 + pill_h - 14
         cv.putText(output, label_text, (px1 + 60, text_y), FONT, 0.75, (255, 255, 255), 2, cv.LINE_AA)
 
-        # Draw emoji on the left of pill
+        # Draw emoji on the left of pill, vertically centered
+        emoji_size = 28
         emoji_x = px1 + 12
-        emoji_y = py1 + 4
-        output = draw_emoji_bgr(output, info['emoji'], (emoji_x, emoji_y), size=28)
+        emoji_y = py1 + (pill_h - emoji_size) // 2 + 1
+        output = draw_emoji_bgr(output, info['emoji'], (emoji_x, emoji_y), size=emoji_size)
 
     return output, history
 
