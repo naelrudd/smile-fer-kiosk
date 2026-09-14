@@ -32,6 +32,7 @@ EXPRESSIONS = {
 
 SMOOTH_FRAMES = 5
 FONT = cv.FONT_HERSHEY_DUPLEX
+FER_INTERVAL = 3  # ponytail: run FER every N frames; face detection runs every frame
 
 
 def resource_path(relative_path):
@@ -86,7 +87,7 @@ def load_models():
     return detect_model, fer_model
 
 
-def process_frame(detect_model, fer_model, frame):
+def detect_faces(detect_model, frame):
     h, w = frame.shape[:2]
     detect_model.setInputSize([w, h])
     dets = detect_model.infer(frame)
@@ -97,8 +98,7 @@ def process_frame(detect_model, fer_model, frame):
     for face_points in dets:
         bbox = face_points[:4].astype(np.int32)
         landmarks = face_points[4:14].astype(np.int32).reshape((5, 2))
-        fer_idx = int(fer_model.infer(frame, face_points[:-1]).item())
-        faces.append((bbox, landmarks, fer_idx))
+        faces.append((bbox, landmarks, face_points[:-1]))
     return faces
 
 
@@ -170,14 +170,16 @@ def main():
         print("Cannot open camera")
         return
 
-    cap.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
 
     window_name = "SMILE Kiosk"
     cv.namedWindow(window_name, cv.WND_PROP_FULLSCREEN)
     cv.setWindowProperty(window_name, cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
 
     history = []
+    last_fer = {}  # face index -> expression
+    frame_counter = 0
 
     while True:
         ret, frame = cap.read()
@@ -186,10 +188,25 @@ def main():
             break
 
         frame = cv.flip(frame, 1)
-        faces = process_frame(detect_model, fer_model, frame)
-        vis, history = visualize(frame, faces, history)
+        faces = detect_faces(detect_model, frame)
+
+        if frame_counter % FER_INTERVAL == 0:
+            current_fer = {}
+            for i, (bbox, landmarks, face_points) in enumerate(faces):
+                fer_idx = int(fer_model.infer(frame, face_points).item())
+                current_fer[i] = fer_idx
+            last_fer = current_fer
+
+        # Merge detection with last known expressions
+        merged_faces = []
+        for i, (bbox, landmarks, _) in enumerate(faces):
+            fer_idx = last_fer.get(i, 4)
+            merged_faces.append((bbox, landmarks, fer_idx))
+
+        vis, history = visualize(frame, merged_faces, history)
 
         cv.imshow(window_name, vis)
+        frame_counter += 1
 
         key = cv.waitKey(1) & 0xFF
         if key in (27, ord('q'), ord('Q')):
