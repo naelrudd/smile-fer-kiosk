@@ -182,9 +182,9 @@ def main():
         input('Press Enter to exit...')
         return
 
-    # Lower default resolution for performance
-    cap.set(cv.CAP_PROP_FRAME_WIDTH, 480)
-    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 360)
+    # Camera resolution (adjust if too zoomed or too slow)
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
 
     window_name = "SMILE Kiosk"
     cv.namedWindow(window_name, cv.WND_PROP_FULLSCREEN)
