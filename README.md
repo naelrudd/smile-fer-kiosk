@@ -5,7 +5,7 @@ A fullscreen facial expression recognition kiosk for **Ubuntu Desktop** and **Wi
 ## Features
 
 - Real-time face detection with YuNet
-- Facial expression recognition with MobileFaceNet (6 emotions)
+- Facial expression recognition with MobileFaceNet (7 emotions)
 - Mirror-flipped camera for natural selfie-style display
 - Fullscreen kiosk UI with colored bounding boxes per expression
 - Auto-start on login (Ubuntu and Windows)
@@ -17,6 +17,7 @@ A fullscreen facial expression recognition kiosk for **Ubuntu Desktop** and **Wi
 | Expression | Emoji | Color  |
 |------------|-------|--------|
 | Angry      | 😠   | Red    |
+| Disgust    | 🤢   | Orange |
 | Fearful    | 😨   | Orange |
 | Happy      | 😄   | Green  |
 | Neutral    | 😐   | White  |

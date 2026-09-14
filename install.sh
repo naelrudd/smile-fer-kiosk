@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh - Run once on Ubuntu Desktop after extracting smile_kiosk.zip
+# install.sh - Run once on Linux Desktop after extracting smile_kiosk.zip
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -8,21 +8,16 @@ HOME_DIR="$HOME/smile_kiosk"
 echo "Installing SMILE Kiosk to $HOME_DIR..."
 mkdir -p "$HOME_DIR"
 
-# Copy application files
 cp "$SCRIPT_DIR"/*.py "$HOME_DIR/"
-cp -r "$SCRIPT_DIR"/assets "$HOME_DIR/" 2>/dev/null || true
 cp -r "$SCRIPT_DIR"/models "$HOME_DIR/"
 
-# Create virtual environment
 python3 -m venv "$HOME_DIR/venv"
 "$HOME_DIR/venv/bin/pip" install --upgrade pip
-"$HOME_DIR/venv/bin/pip" install opencv-python numpy
+"$HOME_DIR/venv/bin/pip" install opencv-python numpy pillow pilmoji emoji
 
-# Setup autostart for current user
 AUTOSTART_DIR="$HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 
-# Generate desktop entry pointing to the installed location
 cat > "$AUTOSTART_DIR/smile-kiosk.desktop" <<EOF
 [Desktop Entry]
 Type=Application

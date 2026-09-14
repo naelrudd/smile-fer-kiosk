@@ -13,7 +13,7 @@ xcopy /s /e /y "%SCRIPT_DIR%\models" "%HOME_DIR%\models\" >nul 2>&1
 
 python -m venv "%HOME_DIR%\venv"
 "%HOME_DIR%\venv\Scripts\pip" install --upgrade pip
-"%HOME_DIR%\venv\Scripts\pip" install opencv-python numpy
+"%HOME_DIR%\venv\Scripts\pip" install opencv-python numpy pillow pilmoji emoji
 
 :: Create startup shortcut
 echo Set oWS = WScript.CreateObject("WScript.Shell") > "%TEMP%\CreateShortcut.vbs"

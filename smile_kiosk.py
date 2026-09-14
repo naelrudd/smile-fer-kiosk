@@ -1,32 +1,71 @@
 #!/usr/bin/env python3
 """
-SMILE Kiosk - Fullscreen facial expression recognition for Ubuntu Desktop
+SMILE Kiosk - Minimal modern UI for photo booth / wahana
 Run: python3 smile_kiosk.py
 """
 import os
 import sys
-import time
+import collections
 import numpy as np
 import cv2 as cv
+
+from PIL import Image, ImageFont
+
+from pilmoji import Pilmoji
 
 from yunet import YuNet
 from facial_fer_model import FacialExpressionRecog
 
 # --- Configuration ---
-FONT = cv.FONT_HERSHEY_DUPLEX
 MODEL_FACE = 'models/face_detection_yunet_2023mar.onnx'
 MODEL_FER = 'models/facial_expression_recognition_mobilefacenet_2022july.onnx'
 
-# Expression -> (label, color BGR, emoji)
 EXPRESSIONS = {
-    0: ('Angry',    (0, 0, 255),     '😠'),
-    1: ('Neutral',  (255, 255, 255), '😐'),
-    2: ('Fearful',  (0, 100, 255),   '😨'),
-    3: ('Happy',    (0, 255, 0),     '😄'),
-    4: ('Neutral',  (255, 255, 255), '😐'),
-    5: ('Sad',      (255, 0, 0),     '😢'),
-    6: ('Surprised', (0, 255, 255),  '😲'),
+    0: {'label': 'Angry',    'emoji': '😠', 'color': (0, 0, 255)},
+    1: {'label': 'Disgust',  'emoji': '😒', 'color': (0, 150, 255)},
+    2: {'label': 'Fearful',  'emoji': '😨', 'color': (0, 100, 255)},
+    3: {'label': 'Happy',    'emoji': '😄', 'color': (0, 255, 0)},
+    4: {'label': 'Neutral',  'emoji': '😐', 'color': (200, 200, 200)},
+    5: {'label': 'Sad',      'emoji': '😢', 'color': (255, 0, 0)},
+    6: {'label': 'Surprised','emoji': '😲', 'color': (0, 255, 255)},
 }
+
+SMOOTH_FRAMES = 5
+FONT = cv.FONT_HERSHEY_DUPLEX
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+
+def get_emoji_font(size):
+    candidates = [
+        resource_path('assets/NotoEmoji-Regular.ttf'),
+        '/usr/share/fonts/google-noto-emoji-fonts/NotoEmoji-Regular.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        'C:\\Windows\\Fonts\\seguiemj.ttf',
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    return ImageFont.load_default()
+
+
+def draw_emoji_bgr(frame, emoji, position, size):
+    """Draw emoji onto a BGR frame using Pilmoji, returns modified frame."""
+    img = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB))
+    font = get_emoji_font(size)
+    with Pilmoji(img) as pilmoji:
+        pilmoji.text(position, emoji, font=font, fill=(255, 255, 255))
+    return cv.cvtColor(np.array(img), cv.COLOR_RGB2BGR)
 
 
 def load_models():
@@ -63,46 +102,63 @@ def process_frame(detect_model, fer_model, frame):
     return faces
 
 
-def visualize(frame, faces, fps):
-    output = frame.copy()
-    h, w = output.shape[:2]
+def smooth_expression(idx, history):
+    history.append(idx)
+    if len(history) > SMOOTH_FRAMES:
+        history.pop(0)
+    counter = collections.Counter(history)
+    return counter.most_common(1)[0][0], history
 
-    # Dark overlay edges
-    overlay = output.copy()
-    cv.rectangle(overlay, (0, 0), (w, h), (0, 0, 0), -1)
-    cv.addWeighted(overlay, 0.15, output, 0.85, 0, output)
+
+def draw_pill(img, x1, y1, x2, y2, color, alpha=0.8):
+    overlay = img.copy()
+    cv.rectangle(overlay, (x1, y1), (x2, y2), color, -1, cv.LINE_AA)
+    cv.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
+
+
+def visualize(frame, faces, history):
+    output = frame.copy()
+
+    if not faces:
+        return output, history
 
     for (x, y, bw, bh), landmarks, fer_idx in faces:
-        label, color, emoji = EXPRESSIONS.get(fer_idx, ('Unknown', (128, 128, 128), '❓'))
+        smooth_idx, history = smooth_expression(fer_idx, history)
+        info = EXPRESSIONS.get(smooth_idx, EXPRESSIONS[4])
+        color = info['color']
 
-        # Bounding box with glow effect
-        cv.rectangle(output, (x-3, y-3), (x+bw+3, y+bh+3), color, 2)
-        cv.rectangle(output, (x, y), (x+bw, y+bh), color, 2)
+        # Thin rounded-ish rectangle
+        pad = 6
+        cv.rectangle(output, (x - pad, y - pad), (x + bw + pad, y + bh + pad), color, 3, cv.LINE_AA)
 
-        # Landmarks
+        # Small landmark dots
         for lx, ly in landmarks:
-            cv.circle(output, (lx, ly), 4, (255, 255, 255), -1)
-            cv.circle(output, (lx, ly), 3, color, -1)
+            cv.circle(output, (lx, ly), 4, (255, 255, 255), -1, cv.LINE_AA)
+            cv.circle(output, (lx, ly), 2, color, -1, cv.LINE_AA)
 
-        # Label with background
-        text = f"{emoji} {label}"
-        (tw, th), _ = cv.getTextSize(text, FONT, 0.9, 2)
-        pad = 8
-        cv.rectangle(output, (x, y - th - pad*2), (x + tw + pad*2, y), color, -1)
-        cv.putText(output, text, (x + pad, y - pad), FONT, 0.9, (0, 0, 0), 2)
+        # Label without emoji for pill size calculation
+        label_text = info['label']
+        (tw, th), _ = cv.getTextSize(label_text, FONT, 0.75, 2)
 
-    # Header overlay
-    header = f"SMILE KIOSK | FPS: {fps:.1f}"
-    if not faces:
-        header += " | Show your face!"
-    else:
-        header += f" | {len(faces)} face(s)"
+        pill_h = th + 22
+        pill_w = tw + 80  # extra space for emoji
+        px1 = x + (bw - pill_w) // 2
+        py1 = y + bh + 16
+        px2 = px1 + pill_w
+        py2 = py1 + pill_h
 
-    cv.rectangle(output, (0, 0), (w, 55), (0, 0, 0), -1)
-    cv.rectangle(output, (0, 0), (w, 55), (0, 255, 0), 2)
-    cv.putText(output, header, (20, 38), FONT, 1.0, (0, 255, 0), 2)
+        draw_pill(output, px1, py1, px2, py2, color)
 
-    return output
+        # Draw label text
+        text_y = py1 + pill_h - 14
+        cv.putText(output, label_text, (px1 + 60, text_y), FONT, 0.75, (255, 255, 255), 2, cv.LINE_AA)
+
+        # Draw emoji on the left of pill
+        emoji_x = px1 + 12
+        emoji_y = py1 + 4
+        output = draw_emoji_bgr(output, info['emoji'], (emoji_x, emoji_y), size=28)
+
+    return output, history
 
 
 def main():
@@ -116,16 +172,11 @@ def main():
     cap.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
 
-    width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
-    print(f"Camera: {width}x{height}")
-
     window_name = "SMILE Kiosk"
     cv.namedWindow(window_name, cv.WND_PROP_FULLSCREEN)
     cv.setWindowProperty(window_name, cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
 
-    prev = time.time()
-    fps = 0.0
+    history = []
 
     while True:
         ret, frame = cap.read()
@@ -133,19 +184,10 @@ def main():
             print("No frame")
             break
 
-        # Mirror left-right like a selfie
         frame = cv.flip(frame, 1)
-
         faces = process_frame(detect_model, fer_model, frame)
+        vis, history = visualize(frame, faces, history)
 
-        now = time.time()
-        try:
-            fps = 1.0 / (now - prev)
-        except ZeroDivisionError:
-            fps = 0.0
-        prev = now
-
-        vis = visualize(frame, faces, fps)
         cv.imshow(window_name, vis)
 
         key = cv.waitKey(1) & 0xFF
