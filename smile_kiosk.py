@@ -7,11 +7,27 @@ Run: python3 smile_kiosk.py
 import os
 import sys
 import collections
+import logging
+import traceback
 import numpy as np
 import cv2 as cv
 
 from yunet import YuNet
 from facial_fer_model import FacialExpressionRecog
+
+# --- Logging ---
+LOG_DIR = os.path.join(os.path.expanduser('~'), 'smile_kiosk')
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, 'smile_kiosk.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE, mode='a', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout),
+    ]
+)
 
 # --- Configuration ---
 MODEL_FACE = 'models/face_detection_yunet_2023mar.onnx'
@@ -43,21 +59,28 @@ def apply_brightness_filter(frame, brightness_factor=BRIGHTNESS_FACTOR, contrast
 
 
 def load_models():
-    detect_model = YuNet(
-        modelPath=MODEL_FACE,
-        inputSize=[320, 320],
-        confThreshold=0.6,
-        nmsThreshold=0.3,
-        topK=5000,
-        backendId=cv.dnn.DNN_BACKEND_OPENCV,
-        targetId=cv.dnn.DNN_TARGET_CPU,
-    )
-    fer_model = FacialExpressionRecog(
-        modelPath=MODEL_FER,
-        backendId=cv.dnn.DNN_BACKEND_OPENCV,
-        targetId=cv.dnn.DNN_TARGET_CPU,
-    )
-    return detect_model, fer_model
+    logging.info('Loading models...')
+    try:
+        detect_model = YuNet(
+            modelPath=MODEL_FACE,
+            inputSize=[320, 320],
+            confThreshold=0.6,
+            nmsThreshold=0.3,
+            topK=5000,
+            backendId=cv.dnn.DNN_BACKEND_OPENCV,
+            targetId=cv.dnn.DNN_TARGET_CPU,
+        )
+        fer_model = FacialExpressionRecog(
+            modelPath=MODEL_FER,
+            backendId=cv.dnn.DNN_BACKEND_OPENCV,
+            targetId=cv.dnn.DNN_TARGET_CPU,
+        )
+        logging.info('Models loaded successfully.')
+        return detect_model, fer_model
+    except Exception as e:
+        logging.error('Failed to load models: %s', e)
+        logging.error(traceback.format_exc())
+        raise
 
 
 def detect_faces(detect_model, frame):
@@ -126,14 +149,40 @@ def visualize(frame, faces, history):
     return output, history
 
 
-def main():
-    detect_model, fer_model = load_models()
+def open_camera(max_index=5):
+    """Try camera indices 0..max_index, return first working capture."""
+    logging.info('Searching for camera...')
+    for idx in range(max_index):
+        cap = cv.VideoCapture(idx)
+        if cap.isOpened():
+            ret, _ = cap.read()
+            if ret:
+                logging.info('Camera index %d opened successfully.', idx)
+                return cap
+            else:
+                logging.warning('Camera index %d opened but cannot read frame.', idx)
+        cap.release()
+    logging.error('No working camera found on indices 0..%d.', max_index)
+    return None
 
-    cap = cv.VideoCapture(0)
-    if not cap.isOpened():
-        print("Cannot open camera")
+
+def main():
+    logging.info('=== SMILE Kiosk started ===')
+    try:
+        detect_model, fer_model = load_models()
+    except Exception:
+        logging.error('Exiting due to model load failure.')
+        input('Press Enter to exit...')
         return
 
+    cap = open_camera()
+    if cap is None:
+        print('ERROR: No camera detected. Check device and permissions.')
+        print(f'Log file: {LOG_FILE}')
+        input('Press Enter to exit...')
+        return
+
+    # Lower default resolution for performance
     cap.set(cv.CAP_PROP_FRAME_WIDTH, 480)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 360)
 
@@ -145,51 +194,68 @@ def main():
     last_fer = {}
     frame_counter = 0
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("No frame")
-            break
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                logging.error('Failed to read frame from camera.')
+                break
 
-        frame = cv.flip(frame, 1)
-        frame = apply_brightness_filter(frame)
+            frame = cv.flip(frame, 1)
+            frame = apply_brightness_filter(frame)
 
-        orig_h, orig_w = frame.shape[:2]
-        small_frame = cv.resize(frame, FACE_INPUT_SIZE)
-        scale_x = orig_w / FACE_INPUT_SIZE[0]
-        scale_y = orig_h / FACE_INPUT_SIZE[1]
+            # Resize for faster face detection, then scale coords back
+            orig_h, orig_w = frame.shape[:2]
+            small_frame = cv.resize(frame, FACE_INPUT_SIZE)
+            scale_x = orig_w / FACE_INPUT_SIZE[0]
+            scale_y = orig_h / FACE_INPUT_SIZE[1]
 
-        small_faces = detect_faces(detect_model, small_frame)
+            try:
+                small_faces = detect_faces(detect_model, small_frame)
+            except Exception as e:
+                logging.error('Face detection error: %s', e)
+                logging.error(traceback.format_exc())
+                small_faces = []
 
-        scaled_faces = []
-        for (x, y, bw, bh), landmarks, face_points in small_faces:
-            x, y, bw, bh = int(x * scale_x), int(y * scale_y), int(bw * scale_x), int(bh * scale_y)
-            scaled_landmarks = [(int(lx * scale_x), int(ly * scale_y)) for lx, ly in landmarks]
-            scaled_faces.append(((x, y, bw, bh), scaled_landmarks, face_points))
+            # Scale bounding boxes and landmarks back to original frame size
+            scaled_faces = []
+            for (x, y, bw, bh), landmarks, face_points in small_faces:
+                x, y, bw, bh = int(x * scale_x), int(y * scale_y), int(bw * scale_x), int(bh * scale_y)
+                scaled_landmarks = [(int(lx * scale_x), int(ly * scale_y)) for lx, ly in landmarks]
+                scaled_faces.append(((x, y, bw, bh), scaled_landmarks, face_points))
 
-        if frame_counter % FER_INTERVAL == 0:
-            current_fer = {}
-            for i, (bbox, landmarks, face_points) in enumerate(scaled_faces):
-                fer_idx = int(fer_model.infer(frame, face_points).item())
-                current_fer[i] = fer_idx
-            last_fer = current_fer
+            if frame_counter % FER_INTERVAL == 0:
+                current_fer = {}
+                for i, (bbox, landmarks, face_points) in enumerate(scaled_faces):
+                    try:
+                        fer_idx = int(fer_model.infer(frame, face_points).item())
+                        current_fer[i] = fer_idx
+                    except Exception as e:
+                        logging.error('FER inference error for face %d: %s', i, e)
+                        current_fer[i] = 4
+                last_fer = current_fer
 
-        merged_faces = []
-        for i, (bbox, landmarks, _) in enumerate(scaled_faces):
-            fer_idx = last_fer.get(i, 4)
-            merged_faces.append((bbox, landmarks, fer_idx))
+            merged_faces = []
+            for i, (bbox, landmarks, _) in enumerate(scaled_faces):
+                fer_idx = last_fer.get(i, 4)
+                merged_faces.append((bbox, landmarks, fer_idx))
 
-        vis, history = visualize(frame, merged_faces, history)
+            vis, history = visualize(frame, merged_faces, history)
 
-        cv.imshow(window_name, vis)
-        frame_counter += 1
+            cv.imshow(window_name, vis)
+            frame_counter += 1
 
-        key = cv.waitKey(1) & 0xFF
-        if key in (27, ord('q'), ord('Q')):
-            break
-
-    cap.release()
-    cv.destroyAllWindows()
+            key = cv.waitKey(1) & 0xFF
+            if key in (27, ord('q'), ord('Q')):
+                logging.info('Exit requested by user.')
+                break
+    except Exception as e:
+        logging.error('Runtime error: %s', e)
+        logging.error(traceback.format_exc())
+    finally:
+        cap.release()
+        cv.destroyAllWindows()
+        logging.info('=== SMILE Kiosk stopped ===')
 
 
 if __name__ == '__main__':
