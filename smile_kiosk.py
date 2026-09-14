@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 SMILE Kiosk - Minimal modern UI for photo booth / wahana
+Optimized for low-latency on modest hardware.
 Run: python3 smile_kiosk.py
 """
 import os
@@ -8,10 +9,6 @@ import sys
 import collections
 import numpy as np
 import cv2 as cv
-
-from PIL import Image, ImageFont
-
-from pilmoji import Pilmoji
 
 from yunet import YuNet
 from facial_fer_model import FacialExpressionRecog
@@ -21,52 +18,19 @@ MODEL_FACE = 'models/face_detection_yunet_2023mar.onnx'
 MODEL_FER = 'models/facial_expression_recognition_mobilefacenet_2022july.onnx'
 
 EXPRESSIONS = {
-    0: {'label': 'Angry',    'emoji': '😠', 'color': (0, 0, 255)},
-    1: {'label': 'Disgust',  'emoji': '😒', 'color': (0, 150, 255)},
-    2: {'label': 'Fearful',  'emoji': '😨', 'color': (0, 100, 255)},
-    3: {'label': 'Happy',    'emoji': '😄', 'color': (0, 255, 0)},
-    4: {'label': 'Neutral',  'emoji': '😐', 'color': (200, 200, 200)},
-    5: {'label': 'Sad',      'emoji': '😢', 'color': (255, 0, 0)},
-    6: {'label': 'Surprised','emoji': '😲', 'color': (0, 255, 255)},
+    0: {'label': 'Angry',    'color': (0, 0, 255)},
+    1: {'label': 'Disgust',  'color': (0, 150, 255)},
+    2: {'label': 'Fearful',  'color': (0, 100, 255)},
+    3: {'label': 'Happy',    'color': (0, 255, 0)},
+    4: {'label': 'Neutral',  'color': (200, 200, 200)},
+    5: {'label': 'Sad',      'color': (255, 0, 0)},
+    6: {'label': 'Surprised','color': (0, 255, 255)},
 }
 
 SMOOTH_FRAMES = 5
 FONT = cv.FONT_HERSHEY_DUPLEX
-FER_INTERVAL = 3  # ponytail: run FER every N frames; face detection runs every frame
-
-
-def resource_path(relative_path):
-    """Get absolute path to resource, works for dev and PyInstaller."""
-    if hasattr(sys, '_MEIPASS'):
-        base_path = sys._MEIPASS
-    else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
-
-
-def get_emoji_font(size):
-    candidates = [
-        resource_path('assets/NotoEmoji-Regular.ttf'),
-        '/usr/share/fonts/google-noto-emoji-fonts/NotoEmoji-Regular.ttf',
-        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-        'C:\\Windows\\Fonts\\seguiemj.ttf',
-    ]
-    for path in candidates:
-        if os.path.exists(path):
-            try:
-                return ImageFont.truetype(path, size)
-            except Exception:
-                continue
-    return ImageFont.load_default()
-
-
-def draw_emoji_bgr(frame, emoji, position, size):
-    """Draw emoji onto a BGR frame using Pilmoji, returns modified frame."""
-    img = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB))
-    font = get_emoji_font(size)
-    with Pilmoji(img) as pilmoji:
-        pilmoji.text(position, emoji, font=font, fill=(255, 255, 255))
-    return cv.cvtColor(np.array(img), cv.COLOR_RGB2BGR)
+FER_INTERVAL = 5  # Run FER every N frames
+FACE_INPUT_SIZE = (320, 240)  # Resize for face detection
 
 
 def load_models():
@@ -136,28 +100,23 @@ def visualize(frame, faces, history):
             cv.circle(output, (lx, ly), 4, (255, 255, 255), -1, cv.LINE_AA)
             cv.circle(output, (lx, ly), 2, color, -1, cv.LINE_AA)
 
-        # Label without emoji for pill size calculation
+        # Label pill below the face
         label_text = info['label']
         (tw, th), _ = cv.getTextSize(label_text, FONT, 0.75, 2)
 
-        pill_h = th + 22
-        pill_w = tw + 80  # extra space for emoji
+        pill_h = th + 18
+        pill_w = tw + 24
         px1 = x + (bw - pill_w) // 2
-        py1 = y + bh + 16
+        py1 = y + bh + 12
         px2 = px1 + pill_w
         py2 = py1 + pill_h
 
         draw_pill(output, px1, py1, px2, py2, color)
 
-        # Draw label text
-        text_y = py1 + pill_h - 14
-        cv.putText(output, label_text, (px1 + 60, text_y), FONT, 0.75, (255, 255, 255), 2, cv.LINE_AA)
-
-        # Draw emoji on the left of pill, vertically centered inside pill
-        emoji_size = 28
-        emoji_x = px1 + 12
-        emoji_y = py1 + (pill_h - emoji_size) // 2 - 8
-        output = draw_emoji_bgr(output, info['emoji'], (emoji_x, emoji_y), size=emoji_size)
+        # Draw label text centered
+        text_x = px1 + (pill_w - tw) // 2
+        text_y = py1 + pill_h - 10
+        cv.putText(output, label_text, (text_x, text_y), FONT, 0.75, (255, 255, 255), 2, cv.LINE_AA)
 
     return output, history
 
@@ -170,15 +129,16 @@ def main():
         print("Cannot open camera")
         return
 
-    cap.set(cv.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
+    # Lower default resolution for performance
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, 480)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 360)
 
     window_name = "SMILE Kiosk"
     cv.namedWindow(window_name, cv.WND_PROP_FULLSCREEN)
     cv.setWindowProperty(window_name, cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
 
     history = []
-    last_fer = {}  # face index -> expression
+    last_fer = {}
     frame_counter = 0
 
     while True:
@@ -188,18 +148,31 @@ def main():
             break
 
         frame = cv.flip(frame, 1)
-        faces = detect_faces(detect_model, frame)
+
+        # Resize for faster face detection, then scale coords back
+        orig_h, orig_w = frame.shape[:2]
+        small_frame = cv.resize(frame, FACE_INPUT_SIZE)
+        scale_x = orig_w / FACE_INPUT_SIZE[0]
+        scale_y = orig_h / FACE_INPUT_SIZE[1]
+
+        small_faces = detect_faces(detect_model, small_frame)
+
+        # Scale bounding boxes and landmarks back to original frame size
+        scaled_faces = []
+        for (x, y, bw, bh), landmarks, face_points in small_faces:
+            x, y, bw, bh = int(x * scale_x), int(y * scale_y), int(bw * scale_x), int(bh * scale_y)
+            scaled_landmarks = [(int(lx * scale_x), int(ly * scale_y)) for lx, ly in landmarks]
+            scaled_faces.append(((x, y, bw, bh), scaled_landmarks, face_points))
 
         if frame_counter % FER_INTERVAL == 0:
             current_fer = {}
-            for i, (bbox, landmarks, face_points) in enumerate(faces):
+            for i, (bbox, landmarks, face_points) in enumerate(scaled_faces):
                 fer_idx = int(fer_model.infer(frame, face_points).item())
                 current_fer[i] = fer_idx
             last_fer = current_fer
 
-        # Merge detection with last known expressions
         merged_faces = []
-        for i, (bbox, landmarks, _) in enumerate(faces):
+        for i, (bbox, landmarks, _) in enumerate(scaled_faces):
             fer_idx = last_fer.get(i, 4)
             merged_faces.append((bbox, landmarks, fer_idx))
 
