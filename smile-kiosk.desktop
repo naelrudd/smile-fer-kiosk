@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=SMILE Kiosk
+Exec=/bin/bash -c 'cd "$HOME/smile_kiosk" && QT_QPA_PLATFORM=xcb ./venv/bin/python3 smile_kiosk.py'
+Icon=camera-web
+Comment=Auto-start SMILE Facial Expression Kiosk
+Terminal=false
