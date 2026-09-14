@@ -1,11 +1,17 @@
 # This file is part of OpenCV Zoo project.
 # It is subject to the license terms in the LICENSE file found in the same directory.
 #
-# Copyright (C) 2022, Shenzhen Institute of Artificial Intelligence and Robotics for Society, all rights reserved.
+# Copyright (C) 2022, Shenzhen Institute of Artificial Intelligence and Robotics
+# for Society, all rights reserved.
 # Third party copyrights are property of their respective owners.
 
-import numpy as np
 import cv2 as cv
+import numpy as np
+
+
+class FaceAlignmentError(RuntimeError):
+    """Raised when a face alignment transform cannot be estimated."""
+
 
 class FacialExpressionRecog:
     def __init__(self, modelPath, backendId=0, targetId=0):
@@ -57,19 +63,38 @@ class FacialExpressionRecog:
 
         return results
 
+    def infer_probs(self, image, bbox=None):
+        # Preprocess
+        inputBlob = self._preprocess(image, bbox)
+
+        # Forward
+        self._model.setInput(inputBlob, self._inputNames)
+        outputBlob = self._model.forward(self._outputNames)
+
+        # Postprocess: softmax over class logits for smooth temporal filtering
+        logits = np.asarray(outputBlob[0]).reshape(-1).astype(np.float32)
+        logits -= logits.max()
+        exp = np.exp(logits)
+        return exp / exp.sum()
+
     def _postprocess(self, outputBlob):
         result = np.argmax(outputBlob[0], axis=1).astype(np.uint8)
         return result
 
     @staticmethod
     def getDesc(ind):
-        _expression_enum = ["angry", "disgust", "fearful", "happy", "neutral", "sad", "surprised"]
+        _expression_enum = [
+            "angry", "disgust", "fearful", "happy", "neutral", "sad", "surprised",
+        ]
         return _expression_enum[ind]
 
 
-class FaceAlignment():
+class FaceAlignment:
     def __init__(self, reflective=False):
-        self._std_points = np.array([[38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366], [41.5493, 92.3655], [70.7299, 92.2041]])
+        self._std_points = np.array([
+            [38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366],
+            [41.5493, 92.3655], [70.7299, 92.2041],
+        ])
         self.reflective = reflective
 
     def __tformfwd(self, trans, uv):
@@ -110,7 +135,7 @@ class FaceAlignment():
             # print(r, X, U, sep="\n")
             r = np.squeeze(r)
         else:
-            raise Exception("cp2tform:twoUniquePointsReq")
+            raise FaceAlignmentError("cp2tform:twoUniquePointsReq")
 
         sc = r[0]
         ss = r[1]
@@ -136,7 +161,7 @@ class FaceAlignment():
         xyR = xy
         xyR[:, 0] = -1 * xyR[:, 0]
         # Solve for trans2
-        trans2r, trans2r_inv = self.__findNonreflectiveSimilarity(uv, xyR, options)
+        trans2r, _ = self.__findNonreflectiveSimilarity(uv, xyR, options)
 
         # manually reflect the tform to undo the reflection done on xyR
         TreflectY = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
@@ -166,11 +191,11 @@ class FaceAlignment():
         return cv2_trans
 
     def get_similarity_transform_for_cv2(self, src_pts, dst_pts):
-        trans, trans_inv = self.__get_similarity_transform(src_pts, dst_pts)
+        trans, _ = self.__get_similarity_transform(src_pts, dst_pts)
         cv2_trans = self.__cvt_tform_mat_for_cv2(trans)
         return cv2_trans, trans
 
     def get_align_image(self, image, lm5_points):
         assert lm5_points is not None
-        tfm, trans = self.get_similarity_transform_for_cv2(lm5_points, self._std_points)
+        tfm, _ = self.get_similarity_transform_for_cv2(lm5_points, self._std_points)
         return cv.warpAffine(image, tfm, (112, 112))

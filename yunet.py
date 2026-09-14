@@ -1,18 +1,18 @@
 # This file is part of OpenCV Zoo project.
 # It is subject to the license terms in the LICENSE file found in the same directory.
 #
-# Copyright (C) 2021, Shenzhen Institute of Artificial Intelligence and Robotics for Society, all rights reserved.
+# Copyright (C) 2021, Shenzhen Institute of Artificial Intelligence and Robotics
+# for Society, all rights reserved.
 # Third party copyrights are property of their respective owners.
 
-from itertools import product
-
-import numpy as np
 import cv2 as cv
 
+
 class YuNet:
-    def __init__(self, modelPath, inputSize=[320, 320], confThreshold=0.6, nmsThreshold=0.3, topK=5000, backendId=0, targetId=0):
+    def __init__(self, modelPath, inputSize=None, confThreshold=0.6,
+                 nmsThreshold=0.3, topK=5000, backendId=0, targetId=0):
         self._modelPath = modelPath
-        self._inputSize = tuple(inputSize) # [w, h]
+        self._inputSize = tuple(inputSize) if inputSize is not None else (320, 320)
         self._confThreshold = confThreshold
         self._nmsThreshold = nmsThreshold
         self._topK = topK

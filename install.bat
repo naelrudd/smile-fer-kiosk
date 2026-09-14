@@ -9,11 +9,13 @@ echo Installing SMILE Kiosk to %HOME_DIR%...
 if not exist "%HOME_DIR%" mkdir "%HOME_DIR%"
 
 xcopy /s /e /y "%SCRIPT_DIR%\*.py" "%HOME_DIR%\" >nul 2>&1
+xcopy /y "%SCRIPT_DIR%\requirements.txt" "%HOME_DIR%\" >nul 2>&1
 xcopy /s /e /y "%SCRIPT_DIR%\models" "%HOME_DIR%\models\" >nul 2>&1
+xcopy /s /e /y "%SCRIPT_DIR%\assets" "%HOME_DIR%\assets\" >nul 2>&1
 
 python -m venv "%HOME_DIR%\venv"
 "%HOME_DIR%\venv\Scripts\pip" install --upgrade pip
-"%HOME_DIR%\venv\Scripts\pip" install opencv-python numpy pillow pilmoji emoji
+"%HOME_DIR%\venv\Scripts\pip" install -r "%HOME_DIR%\requirements.txt"
 
 :: Create startup shortcut
 echo Set oWS = WScript.CreateObject("WScript.Shell") > "%TEMP%\CreateShortcut.vbs"

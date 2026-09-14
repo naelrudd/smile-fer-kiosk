@@ -9,11 +9,13 @@ echo "Installing SMILE Kiosk to $HOME_DIR..."
 mkdir -p "$HOME_DIR"
 
 cp "$SCRIPT_DIR"/*.py "$HOME_DIR/"
+cp "$SCRIPT_DIR"/requirements.txt "$HOME_DIR/"
 cp -r "$SCRIPT_DIR"/models "$HOME_DIR/"
+cp -r "$SCRIPT_DIR"/assets "$HOME_DIR/"
 
 python3 -m venv "$HOME_DIR/venv"
 "$HOME_DIR/venv/bin/pip" install --upgrade pip
-"$HOME_DIR/venv/bin/pip" install opencv-python numpy pillow pilmoji emoji
+"$HOME_DIR/venv/bin/pip" install -r "$HOME_DIR/requirements.txt"
 
 AUTOSTART_DIR="$HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"

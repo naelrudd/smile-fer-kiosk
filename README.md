@@ -8,6 +8,11 @@ A fullscreen facial expression recognition kiosk for **Ubuntu Desktop** and **Wi
 - Facial expression recognition with MobileFaceNet (7 emotions)
 - Mirror-flipped camera for natural selfie-style display
 - Fullscreen kiosk UI with colored bounding boxes per expression
+- Threaded capture/inference pipeline for low-latency, stable tracking
+- Offline emoji rendering (bundled Noto Emoji font, no internet needed)
+- Innovation logo overlay (bundled `assets/logo-inovasi.png`)
+- Combo game: sustained smiles build a combo, milestones fire confetti,
+  screen flash, popup text, and a chime (Windows)
 - Auto-start on login (Ubuntu and Windows)
 - Single-command installer
 - Pre-built executables available for Linux and Windows
@@ -17,7 +22,7 @@ A fullscreen facial expression recognition kiosk for **Ubuntu Desktop** and **Wi
 | Expression | Emoji | Color  |
 |------------|-------|--------|
 | Angry      | 😠   | Red    |
-| Disgust    | 🤢   | Orange |
+| Disgust    | 😒   | Orange |
 | Fearful    | 😨   | Orange |
 | Happy      | 😄   | Green  |
 | Neutral    | 😐   | White  |
@@ -87,25 +92,25 @@ chmod +x install.sh
 %USERPROFILE%\smile_kiosk\run.bat
 ```
 
-Exit by pressing `ESC` or `Q`.
+Exit by pressing `ESC` or `Q`. Press `F` to toggle the FPS/latency HUD.
 
 ## Build Executable Yourself
 
 ### Requirements
 
 - Python 3.12+
-- `pip install opencv-python numpy pyinstaller`
+- `pip install -r requirements.txt pyinstaller`
 
 ### Linux
 
 ```bash
-pyinstaller --onefile --name smile_kiosk_linux --add-data "models:models" --hidden-import cv2 smile_kiosk.py
+pyinstaller --onefile --name smile_kiosk_linux --add-data "models:models" --add-data "assets:assets" --hidden-import cv2 smile_kiosk.py
 ```
 
 ### Windows
 
 ```batch
-pyinstaller --onefile --name smile_kiosk_windows --add-data "models;models" --hidden-import cv2 smile_kiosk.py
+pyinstaller --onefile --name smile_kiosk_windows --add-data "models;models" --add-data "assets;assets" --hidden-import cv2 smile_kiosk.py
 ```
 
 ## System Requirements
@@ -122,9 +127,13 @@ smile_kiosk/
 ├── smile_kiosk.py       # Main application
 ├── yunet.py             # YuNet face detector wrapper
 ├── facial_fer_model.py  # FER model wrapper
+├── requirements.txt     # Python dependencies
 ├── models/              # ONNX model files
 │   ├── face_detection_yunet_2023mar.onnx
 │   └── facial_expression_recognition_mobilefacenet_2022july.onnx
+├── assets/              # Bundled Noto Emoji font + innovation logo
+│   ├── NotoEmoji-Regular.ttf
+│   └── logo-inovasi.png
 ├── install.sh           # Ubuntu installer + autostart
 ├── install.bat          # Windows installer + autostart
 ├── run.sh               # Ubuntu manual launcher
