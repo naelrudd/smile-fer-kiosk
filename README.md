@@ -1,6 +1,6 @@
 # SMILE Kiosk
 
-A fullscreen facial expression recognition kiosk for Ubuntu Desktop. Detects faces in real-time and displays the detected expression with emoji overlays.
+A fullscreen facial expression recognition kiosk for **Ubuntu Desktop** and **Windows**. Detects faces in real-time and displays the detected expression with emoji overlays.
 
 ## Features
 
@@ -8,7 +8,7 @@ A fullscreen facial expression recognition kiosk for Ubuntu Desktop. Detects fac
 - Facial expression recognition with MobileFaceNet (7 emotions)
 - Mirror-flipped camera for natural selfie-style display
 - Fullscreen kiosk UI with colored bounding boxes per expression
-- Auto-start on Ubuntu Desktop login
+- Auto-start on login (Ubuntu and Windows)
 - Single-command installer
 
 ## Expressions Supported
@@ -25,33 +25,48 @@ A fullscreen facial expression recognition kiosk for Ubuntu Desktop. Detects fac
 
 ## Quick Start
 
-1. Download and extract `smile_kiosk.zip`.
-2. Open a terminal inside the extracted `smile_kiosk` folder.
-3. Run the installer:
+### Ubuntu
+
+1. Extract `smile_kiosk.zip`.
+2. Open terminal inside the `smile_kiosk` folder.
+3. Run:
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-4. Reboot the machine.
+4. Reboot.
 
-The kiosk will start automatically after login.
+### Windows
+
+1. Extract `smile_kiosk.zip`.
+2. Open `smile_kiosk` folder.
+3. Double-click `install.bat`.
+4. Restart your PC.
 
 ## Manual Run
 
+### Ubuntu
+
 ```bash
 ~/smile_kiosk/run.sh
+```
+
+### Windows
+
+```batch
+%USERPROFILE%\smile_kiosk\run.bat
 ```
 
 Exit by pressing `ESC` or `Q`.
 
 ## System Requirements
 
-- Ubuntu Desktop (tested on Ubuntu with GNOME)
+- Ubuntu Desktop or Windows 10/11
 - Webcam
 - Python 3.12+
-- Internet connection only during installation (for pip packages)
+- Internet connection only during installation
 
 ## File Structure
 
@@ -63,8 +78,10 @@ smile_kiosk/
 ├── models/              # ONNX model files
 │   ├── face_detection_yunet_2023mar.onnx
 │   └── facial_expression_recognition_mobilefacenet_2022july.onnx
-├── install.sh           # One-time installer with autostart setup
-├── run.sh               # Manual launcher
+├── install.sh           # Ubuntu installer + autostart
+├── install.bat          # Windows installer + autostart
+├── run.sh               # Ubuntu manual launcher
+├── run.bat              # Windows manual launcher
 └── README.md
 ```
 
