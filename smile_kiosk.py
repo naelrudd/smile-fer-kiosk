@@ -20,7 +20,7 @@ MODEL_FER = 'models/facial_expression_recognition_mobilefacenet_2022july.onnx'
 # Expression -> (label, color BGR, emoji)
 EXPRESSIONS = {
     0: ('Angry',    (0, 0, 255),     '😠'),
-    1: ('Disgust',  (0, 100, 255),   '🤢'),
+    1: ('Neutral',  (255, 255, 255), '😐'),
     2: ('Fearful',  (0, 100, 255),   '😨'),
     3: ('Happy',    (0, 255, 0),     '😄'),
     4: ('Neutral',  (255, 255, 255), '😐'),
