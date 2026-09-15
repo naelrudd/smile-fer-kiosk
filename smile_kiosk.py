@@ -54,7 +54,7 @@ FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 
 # Gamification
-LOGO_HEIGHT = 90
+LOGO_HEIGHT = 60
 LOGO_MARGIN = 16
 COMBO_STEP_S = 0.4       # seconds of sustained Happy per combo point
 COMBO_DECAY_RATE = 2.0   # score-seconds lost per second when not happy
@@ -586,17 +586,9 @@ def draw_combo_badge(frame, x, y, combo):
 def render(frame, faces, emoji_sprites, game):
     output = frame
 
-    for (x, y, bw, bh), landmarks, idx, tid in faces:
+    for (x, y, bw, bh), _landmarks, idx, tid in faces:
         info = EXPRESSIONS.get(idx, EXPRESSIONS[4])
         color = info['color']
-
-        pad = 6
-        cv.rectangle(output, (x - pad, y - pad), (x + bw + pad, y + bh + pad),
-                     color, 3, cv.LINE_AA)
-
-        for lx, ly in landmarks:
-            cv.circle(output, (lx, ly), 4, (255, 255, 255), -1, cv.LINE_AA)
-            cv.circle(output, (lx, ly), 2, color, -1, cv.LINE_AA)
 
         label_text = info['label']
         (tw, th), _ = cv.getTextSize(label_text, FONT, 0.75, 2)
