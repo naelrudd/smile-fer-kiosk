@@ -122,7 +122,7 @@ If it fails, check the log: `%USERPROFILE%\smile_kiosk\smile_kiosk.log`.
 1. Right-click **`setup_schedule.bat`** (also copied to `%USERPROFILE%\smile_kiosk\`) → **Run as administrator**.
 2. It creates two Windows Scheduled Tasks:
    - `SMILE_Kiosk_Morning` — starts the app every day at 07:00 (wakes the PC)
-   - `SMILE_Kiosk_Evening` — closes the app and hibernates at 18:00
+   - `SMILE_Kiosk_Evening` — force-closes apps and hibernates at 18:00
 
 ### Step 6 — Enable wake timers (required for the 07:00 auto-start)
 

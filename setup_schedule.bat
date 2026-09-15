@@ -40,11 +40,11 @@ powershell -NoProfile -Command "$t = Get-ScheduledTask -TaskName 'SMILE_Kiosk_Mo
 
 echo Morning task created: start app at 07:00 (wake enabled).
 
-:: --- Evening: close app + hibernate at 18:00 ---
+:: --- Evening: hibernate at 18:00 (-f also force-closes the kiosk app) ---
 schtasks /Delete /TN "SMILE_Kiosk_Evening" /F >nul 2>&1
 schtasks /Create ^
   /TN "SMILE_Kiosk_Evening" ^
-  /TR "powershell.exe -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*smile_kiosk*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Start-Sleep -s 3; shutdown /h\"" ^
+  /TR "shutdown /h -f" ^
   /SC DAILY ^
   /ST 18:00 ^
   /RL HIGHEST ^
@@ -55,7 +55,11 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo Evening task created: close app and hibernate at 18:00.
+echo Evening task created: hibernate at 18:00.
+echo.
+echo Verify both tasks exist:
+schtasks /Query /TN "SMILE_Kiosk_Morning" /FO LIST | findstr /i "TaskName Next"
+schtasks /Query /TN "SMILE_Kiosk_Evening" /FO LIST | findstr /i "TaskName Next"
 echo.
 echo IMPORTANT:
 echo  1. Enable wake timers: Control Panel ^> Power Options ^> Change plan settings
