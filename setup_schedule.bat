@@ -3,52 +3,62 @@ chcp 65001 >nul
 setlocal
 
 echo Setting up SMILE Kiosk daily schedule...
+echo (Run this as Administrator!)
 
-:: Path to executable (adjust if installed elsewhere)
-set "APP_PATH=%USERPROFILE%\smile_kiosk\smile_kiosk.exe"
+:: App location: prefer the standalone exe, fall back to run.bat (source install)
 set "APP_DIR=%USERPROFILE%\smile_kiosk"
+if exist "%APP_DIR%\smile_kiosk_windows.exe" (
+    set "APP_CMD=%APP_DIR%\smile_kiosk_windows.exe"
+) else (
+    set "APP_CMD=%APP_DIR%\run.bat"
+)
 
-:: --- Morning: turn on / wake at 07:00 ---
-:: Remove existing task if any
+if not exist "%APP_CMD%" (
+    echo ERROR: %APP_CMD% not found. Install the app first with install.bat,
+    echo or copy smile_kiosk_windows.exe into %APP_DIR%.
+    pause
+    exit /b 1
+)
+
+:: --- Morning: start app at 07:00 ---
 schtasks /Delete /TN "SMILE_Kiosk_Morning" /F >nul 2>&1
-
-:: Create morning task: wake PC from sleep and run the app
 schtasks /Create ^
   /TN "SMILE_Kiosk_Morning" ^
-  /TR "\'%APP_PATH%\'" ^
+  /TR "'%APP_CMD%'" ^
   /SC DAILY ^
   /ST 07:00 ^
   /RL HIGHEST ^
   /F
-
 if %errorlevel% neq 0 (
-    echo Failed to create morning task.
+    echo Failed to create morning task. Run as Administrator.
+    pause
     exit /b 1
 )
 
-:: Wake the computer from sleep for this task
-powercfg /waketimers
+:: Allow this task to wake the PC from sleep/hibernate
+powershell -NoProfile -Command "$t = Get-ScheduledTask -TaskName 'SMILE_Kiosk_Morning'; $t.Settings.WakeToRun = $true; Set-ScheduledTask $t" >nul 2>&1
 
-echo Morning task created: start app at 07:00.
+echo Morning task created: start app at 07:00 (wake enabled).
 
-:: --- Evening: turn off at 18:00 ---
+:: --- Evening: close app + hibernate at 18:00 ---
 schtasks /Delete /TN "SMILE_Kiosk_Evening" /F >nul 2>&1
-
 schtasks /Create ^
   /TN "SMILE_Kiosk_Evening" ^
-  /TR "powershell.exe -Command \"Stop-Process -Name smile_kiosk -Force; Start-Sleep -s 5; shutdown /h\"" ^
+  /TR "powershell.exe -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*smile_kiosk*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Start-Sleep -s 3; shutdown /h\"" ^
   /SC DAILY ^
   /ST 18:00 ^
   /RL HIGHEST ^
   /F
-
 if %errorlevel% neq 0 (
-    echo Failed to create evening task.
+    echo Failed to create evening task. Run as Administrator.
+    pause
     exit /b 1
 )
 
-echo Evening task created: stop app and hibernate at 18:00.
+echo Evening task created: close app and hibernate at 18:00.
 echo.
-echo IMPORTANT: For PC to wake at 07:00, enable wake timers in BIOS / Windows.
-echo To wake the TV automatically, enable HDMI-CEC on TV or set TV auto-on schedule.
+echo IMPORTANT:
+echo  1. Enable wake timers: Control Panel ^> Power Options ^> Change plan settings
+echo     ^> Change advanced power settings ^> Sleep ^> Allow wake timers = Enable.
+echo  2. TV auto-on: enable HDMI-CEC on the TV, or set the TV's own power timer.
 pause

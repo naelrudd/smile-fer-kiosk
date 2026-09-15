@@ -78,6 +78,82 @@ chmod +x install.sh
 3. Double-click `install.bat`.
 4. Restart your PC.
 
+## Full Windows Kiosk Installation (detailed)
+
+Step-by-step for setting up the kiosk PC with the daily schedule
+(on 07:00, hibernate 18:00).
+
+### Step 1 — Download
+
+1. Go to https://github.com/naelrudd/smile-fer-kiosk/releases/latest
+2. Download **Source code (zip)** AND **smile_kiosk_windows.exe**.
+3. Extract the Source code zip, e.g. to `Downloads\smile-fer-kiosk-master`.
+
+### Step 2 — Install Python (only needed for source install)
+
+1. Download Python from https://www.python.org/downloads/
+2. Run the installer and **check "Add Python to PATH"** before clicking Install.
+3. Verify in Command Prompt:
+
+```batch
+python --version
+```
+
+(Skip Step 2–3 if you only use `smile_kiosk_windows.exe`.)
+
+### Step 3 — Install the app
+
+1. Open the extracted folder.
+2. Right-click **`install.bat`** → **Run as administrator**.
+3. Wait until it prints "SMILE Kiosk installed."
+4. (Exe alternative: copy `smile_kiosk_windows.exe` into `%USERPROFILE%\smile_kiosk\`.)
+
+### Step 4 — Test it runs
+
+```batch
+%USERPROFILE%\smile_kiosk\run.bat
+```
+
+The camera preview must appear fullscreen. Press `ESC` or `Q` to exit.
+If it fails, check the log: `%USERPROFILE%\smile_kiosk\smile_kiosk.log`.
+
+### Step 5 — Set the daily schedule (on 07:00, off 18:00)
+
+1. Right-click **`setup_schedule.bat`** (also copied to `%USERPROFILE%\smile_kiosk\`) → **Run as administrator**.
+2. It creates two Windows Scheduled Tasks:
+   - `SMILE_Kiosk_Morning` — starts the app every day at 07:00 (wakes the PC)
+   - `SMILE_Kiosk_Evening` — closes the app and hibernates at 18:00
+
+### Step 6 — Enable wake timers (required for the 07:00 auto-start)
+
+1. Open **Control Panel → Power Options → Change plan settings → Change advanced power settings**.
+2. Expand **Sleep → Allow wake timers** → set to **Enable**. Click OK.
+3. Hibernate must be on. In an **admin** Command Prompt:
+
+```batch
+powercfg /hibernate on
+```
+
+### Step 7 — TV auto power (optional, done on the TV itself)
+
+Windows cannot power the TV. Use one of:
+- **HDMI-CEC**: enable it in the TV settings (e.g. "Anynet+", "BRAVIA Sync",
+  "Simplink"). The TV switches on when the PC wakes and outputs video.
+- **TV timer**: set the TV's own auto-on schedule (most smart TVs have it).
+
+### Step 8 — Verify everything
+
+1. In Task Scheduler (`taskschd.msc`) check both `SMILE_Kiosk_*` tasks exist,
+   and the Morning task's conditions show "Wake the computer to run this task".
+2. Temporarily move the Morning task time 2 minutes ahead (right-click →
+   Properties → Triggers → Edit) and confirm the PC wakes and the app opens.
+   Move it back to 07:00 afterwards.
+3. Optionally test the Evening task the same way (it hibernates the PC).
+
+### Removing the schedule
+
+Right-click `%USERPROFILE%\smile_kiosk\remove_schedule.bat` → Run as administrator.
+
 ## Manual Run
 
 ### Ubuntu
@@ -138,6 +214,8 @@ smile_kiosk/
 ├── install.bat          # Windows installer + autostart
 ├── run.sh               # Ubuntu manual launcher
 ├── run.bat              # Windows manual launcher
+├── setup_schedule.bat   # Windows: daily on 07:00 / hibernate 18:00
+├── remove_schedule.bat  # Windows: remove the scheduled tasks
 ├── .github/workflows/   # CI/CD for building executables
 ├── dist/                # Pre-built executables
 └── README.md

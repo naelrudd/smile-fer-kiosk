@@ -28,6 +28,8 @@ cscript "%TEMP%\CreateShortcut.vbs" >nul 2>&1
 del "%TEMP%\CreateShortcut.vbs"
 
 copy /y "%SCRIPT_DIR%\run.bat" "%HOME_DIR%\run.bat" >nul
+copy /y "%SCRIPT_DIR%\setup_schedule.bat" "%HOME_DIR%\setup_schedule.bat" >nul
+copy /y "%SCRIPT_DIR%\remove_schedule.bat" "%HOME_DIR%\remove_schedule.bat" >nul
 echo SMILE Kiosk installed. Restart to start automatically.
 echo Or run manually: %HOME_DIR%\run.bat
 pause
